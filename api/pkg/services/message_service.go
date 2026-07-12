@@ -492,6 +492,7 @@ type MessageSendParams struct {
 	UserID            entities.UserID
 	RequestReceivedAt time.Time
 	Index             int
+	SIM               entities.SIM
 }
 
 // SendMessage a new message
@@ -502,6 +503,9 @@ func (service *MessageService) SendMessage(ctx context.Context, params MessageSe
 	ctxLogger := service.tracer.CtxLogger(service.logger, span)
 
 	sendAttempts, sim, messagesPerMinute := service.phoneSettings(ctx, params.UserID, phonenumbers.Format(params.Owner, phonenumbers.E164))
+	if params.SIM == entities.SIM1 || params.SIM == entities.SIM2 {
+		sim = params.SIM
+	}
 
 	eventPayload := events.MessageAPISentPayload{
 		MessageID:         uuid.New(),

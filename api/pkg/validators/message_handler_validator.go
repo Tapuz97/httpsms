@@ -161,6 +161,10 @@ func (validator MessageHandlerValidator) ValidateMessageSend(ctx context.Context
 				"min:1",
 				"max:2048",
 			},
+			"sim": []string{
+				"optional",
+				"in:" + strings.Join([]string{string(entities.SIM1), string(entities.SIM2)}, ","),
+			},
 		},
 	})
 

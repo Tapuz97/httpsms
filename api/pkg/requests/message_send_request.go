@@ -17,6 +17,7 @@ type MessageSend struct {
 	From    string `json:"from" example:"+18005550199"`
 	To      string `json:"to" example:"+18005550100"`
 	Content string `json:"content" example:"This is a sample text message"`
+	SIM     string `json:"sim" example:"SIM1" validate:"optional"`
 
 	// Attachments are optional. When you provide a list of attachments, the message will be sent out as an MMS
 	Attachments []string `json:"attachments" validate:"optional" example:"https://example.com/image.jpg,https://example.com/video.mp4"`
@@ -57,6 +58,7 @@ func (input *MessageSend) ToMessageSendParams(userID entities.UserID, source str
 		RequestReceivedAt: time.Now().UTC(),
 		Contact:           input.sanitizeAddress(input.To),
 		Content:           input.Content,
+		SIM:               entities.SIM(input.SIM),
 		Attachments:       input.Attachments,
 	}
 }
