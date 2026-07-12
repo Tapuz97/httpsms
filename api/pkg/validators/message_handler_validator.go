@@ -161,14 +161,13 @@ func (validator MessageHandlerValidator) ValidateMessageSend(ctx context.Context
 				"min:1",
 				"max:2048",
 			},
-			"sim": []string{
-				"optional",
-				"in:" + strings.Join([]string{string(entities.SIM1), string(entities.SIM2)}, ","),
-			},
 		},
 	})
 
 	result := v.ValidateStruct()
+	if request.SIM != "" && request.SIM != string(entities.SIM1) && request.SIM != string(entities.SIM2) {
+		result.Add("sim", "must be SIM1 or SIM2")
+	}
 	if len(result) != 0 {
 		return result
 	}
