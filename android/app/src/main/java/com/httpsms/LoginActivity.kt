@@ -295,6 +295,7 @@ class LoginActivity : AppCompatActivity() {
             val service = HttpSmsApiService(apiKey.text.toString(), URI(serverUrl.text.toString().trim()))
 
             var e164PhoneNumber = PhoneNumberValidator.formatE164(phoneNumber.text.toString().trim(), countryCode)
+            val sim1PhoneNumber = e164PhoneNumber
             var response = service.updateFcmToken(e164PhoneNumber, Constants.SIM1, Settings.getFcmToken(this) ?: "")
             if(response.second != null || response.third != null) {
                 Timber.e("error updating fcm token [${response.second}], third [${response.third}]")
@@ -309,6 +310,11 @@ class LoginActivity : AppCompatActivity() {
             }
 
             e164PhoneNumber = PhoneNumberValidator.formatE164(phoneNumberSIM2.text.toString().trim(), countryCode)
+            if (e164PhoneNumber == sim1PhoneNumber) {
+                Timber.d("SIM2 has the same number as SIM1, keeping the phone assigned to SIM1")
+                liveData.postValue(Pair(null, null))
+                return@Thread
+            }
             response = service.updateFcmToken(e164PhoneNumber, Constants.SIM2, Settings.getFcmToken(this) ?: "")
 
             liveData.postValue(Pair(response.second, response.third))

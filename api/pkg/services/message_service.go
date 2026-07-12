@@ -109,6 +109,13 @@ func (service *MessageService) GetOutstanding(ctx context.Context, params Messag
 	return message, nil
 }
 
+// OutstandingIDs returns queued message IDs available to a phone.
+func (service *MessageService) OutstandingIDs(ctx context.Context, user entities.AuthContext) ([]uuid.UUID, error) {
+	ctx, span := service.tracer.Start(ctx)
+	defer span.End()
+	return service.repository.OutstandingIDs(ctx, user.ID, user.PhoneNumbers)
+}
+
 // DeleteAllForUser deletes all entities.Message for an entities.UserID.
 func (service *MessageService) DeleteAllForUser(ctx context.Context, userID entities.UserID) error {
 	ctx, span, ctxLogger := service.tracer.StartWithLogger(ctx, service.logger)
@@ -266,6 +273,14 @@ func (service *MessageService) GetMessages(ctx context.Context, params MessageGe
 
 	ctxLogger.Info(fmt.Sprintf("fetched [%d] messages with prams [%+#v]", len(*messages), params))
 	return messages, nil
+}
+
+// GetHistory fetches the latest messages for a user across all contacts.
+func (service *MessageService) GetHistory(ctx context.Context, userID entities.UserID, params repositories.IndexParams) ([]*entities.Message, error) {
+	ctx, span := service.tracer.Start(ctx)
+	defer span.End()
+
+	return service.repository.History(ctx, userID, params)
 }
 
 // GetMessage fetches a message by the ID

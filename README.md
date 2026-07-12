@@ -259,6 +259,21 @@ docker compose up --build
 
 ## Integration Testing
 
+## EmailSMS Self-Host Customizations
+
+This checkout includes project-specific additions for the EmailSMS deployment:
+
+- Firebase email allowlist middleware
+- queued SMTP compose email with per-message sender display name
+- authenticated email history and permanent delete endpoints
+- authenticated SMS history and clear-all endpoint
+- Android polling fallback for outstanding SMS when FCM is delayed
+- duplicate single-SIM protection in the Android registration flow
+
+The root `env.txt` is a keys-only deployment template. Do not commit `.env`,
+Firebase service-account JSON, Android `google-services.json`, phone API keys,
+SMTP credentials, or Cloudflare tunnel tokens.
+
 The project includes end-to-end integration tests that validate the complete SMS send/receive lifecycle. Tests run the full stack (API, PostgreSQL, Redis) in Docker alongside a phone emulator that simulates an Android device.
 
 📖 **Full documentation:** [`tests/README.md`](tests/README.md)

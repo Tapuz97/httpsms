@@ -8,11 +8,12 @@ import (
 
 // Email represents an email message
 type Email struct {
-	ToName  string
-	ToEmail string
-	Subject string
-	HTML    string
-	Text    string
+	FromName string
+	ToName   string
+	ToEmail  string
+	Subject  string
+	HTML     string
+	Text     string
 }
 
 func (mail *Email) toAddress() string {

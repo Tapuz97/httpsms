@@ -62,6 +62,27 @@ class HttpSmsApiService(private val apiKey: String, private val baseURL: URI) {
         return null
     }
 
+    fun getOutstandingMessageIDs(): List<String> {
+        val request: Request = Request.Builder()
+            .url(resolveURL("/v1/messages/outstanding-ids"))
+            .header(apiKeyHeader, apiKey)
+            .header(clientVersionHeader, BuildConfig.VERSION_NAME)
+            .build()
+
+        return try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Timber.e("invalid outstanding IDs response with code [${response.code}]")
+                    return emptyList()
+                }
+                ResponseOutstandingMessageIDs.fromJson(response.body!!.string())?.data ?: emptyList()
+            }
+        } catch (exception: Exception) {
+            Timber.e(exception, "cannot poll outstanding message IDs")
+            emptyList()
+        }
+    }
+
     fun sendDeliveredEvent(messageId: String, timestamp: String): Boolean {
         return sendEvent(messageId, "DELIVERED", timestamp)
     }

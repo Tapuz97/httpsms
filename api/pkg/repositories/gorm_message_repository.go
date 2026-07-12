@@ -104,6 +104,24 @@ func (repository *gormMessageRepository) Index(ctx context.Context, userID entit
 	return messages, nil
 }
 
+func (repository *gormMessageRepository) History(ctx context.Context, userID entities.UserID, params IndexParams) ([]*entities.Message, error) {
+	ctx, span := repository.tracer.Start(ctx)
+	defer span.End()
+
+	messages := make([]*entities.Message, 0, params.Limit)
+	err := repository.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("order_timestamp DESC").
+		Limit(params.Limit).
+		Offset(params.Skip).
+		Find(&messages).Error
+	if err != nil {
+		return nil, repository.tracer.WrapErrorSpan(span, stacktrace.Propagate(err, fmt.Sprintf("cannot fetch message history for user [%s]", userID)))
+	}
+
+	return messages, nil
+}
+
 func (repository *gormMessageRepository) LastMessage(ctx context.Context, userID entities.UserID, owner string, contact string) (*entities.Message, error) {
 	ctx, span := repository.tracer.Start(ctx)
 	defer span.End()
@@ -290,6 +308,24 @@ func (repository *gormMessageRepository) GetOutstanding(ctx context.Context, use
 	}
 
 	return message, nil
+}
+
+func (repository *gormMessageRepository) OutstandingIDs(ctx context.Context, userID entities.UserID, phoneNumbers []string) ([]uuid.UUID, error) {
+	ctx, span := repository.tracer.Start(ctx)
+	defer span.End()
+
+	ids := make([]uuid.UUID, 0)
+	query := repository.db.WithContext(ctx).Model(&entities.Message{}).
+		Where("user_id = ?", userID).
+		Where("status IN ?", []entities.MessageStatus{entities.MessageStatusPending, entities.MessageStatusScheduled}).
+		Order("created_at ASC").Limit(20)
+	if len(phoneNumbers) > 0 {
+		query = query.Where("owner IN ?", phoneNumbers)
+	}
+	if err := query.Pluck("id", &ids).Error; err != nil {
+		return nil, repository.tracer.WrapErrorSpan(span, stacktrace.Propagate(err, "cannot fetch outstanding message IDs"))
+	}
+	return ids, nil
 }
 
 func (repository *gormMessageRepository) order(params IndexParams, defaultSortBy string) string {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -54,8 +55,49 @@ func (h *MessageHandler) RegisterRoutes(router fiber.Router, middlewares ...fibe
 	h.register(router, fiber.MethodPost, "/v1/messages/bulk-send", middlewares, h.BulkSend)
 	h.register(router, fiber.MethodGet, "/v1/messages", middlewares, h.Index)
 	h.register(router, fiber.MethodGet, "/v1/messages/search", middlewares, h.Search)
+	h.register(router, fiber.MethodGet, "/v1/messages/history", middlewares, h.History)
+	h.register(router, fiber.MethodDelete, "/v1/messages/history", middlewares, h.ClearHistory)
 	h.register(router, fiber.MethodGet, "/v1/messages/:messageID", middlewares, h.Get)
 	h.register(router, fiber.MethodDelete, "/v1/messages/:messageID", middlewares, h.Delete)
+}
+
+// ClearHistory deletes all SMS records owned by the authenticated user.
+func (h *MessageHandler) ClearHistory(c fiber.Ctx) error {
+	ctx, span := h.tracer.StartFromFiberCtx(c)
+	defer span.End()
+	if err := h.service.DeleteAllForUser(ctx, h.userIDFomContext(c)); err != nil {
+		return h.responseInternalServerError(c)
+	}
+	return h.responseNoContent(c, "SMS history cleared")
+}
+
+// History returns the authenticated user's latest SMS messages.
+func (h *MessageHandler) History(c fiber.Ctx) error {
+	ctx, span := h.tracer.StartFromFiberCtx(c)
+	defer span.End()
+
+	skip, _ := strconv.Atoi(c.Query("skip", "0"))
+	limit, _ := strconv.Atoi(c.Query("limit", "20"))
+	if skip < 0 {
+		skip = 0
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	messages, err := h.service.GetHistory(ctx, h.userIDFomContext(c), repositories.IndexParams{
+		Skip:           skip,
+		Limit:          limit,
+		SortDescending: true,
+	})
+	if err != nil {
+		return h.responseInternalServerError(c)
+	}
+
+	return h.responseOK(c, fmt.Sprintf("fetched %d messages", len(messages)), messages)
 }
 
 // RegisterPhoneAPIKeyRoutes registers the routes for the MessageHandler
@@ -64,6 +106,19 @@ func (h *MessageHandler) RegisterPhoneAPIKeyRoutes(router fiber.Router, middlewa
 	h.register(router, fiber.MethodPost, "/v1/messages/receive", middlewares, h.PostReceive)
 	h.register(router, fiber.MethodPost, "/v1/messages/calls/missed", middlewares, h.PostCallMissed)
 	h.register(router, fiber.MethodGet, "/v1/messages/outstanding", middlewares, h.GetOutstanding)
+	h.register(router, fiber.MethodGet, "/v1/messages/outstanding-ids", middlewares, h.GetOutstandingIDs)
+}
+
+// GetOutstandingIDs returns queued message IDs for foreground phone polling.
+func (h *MessageHandler) GetOutstandingIDs(c fiber.Ctx) error {
+	ctx, span := h.tracer.StartFromFiberCtx(c)
+	defer span.End()
+
+	ids, err := h.service.OutstandingIDs(ctx, h.userFromContext(c))
+	if err != nil {
+		return h.responseInternalServerError(c)
+	}
+	return h.responseOK(c, fmt.Sprintf("fetched %d outstanding message IDs", len(ids)), ids)
 }
 
 // PostSend a new entities.Message

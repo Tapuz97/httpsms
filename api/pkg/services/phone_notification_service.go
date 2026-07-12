@@ -152,7 +152,7 @@ func (service *PhoneNotificationService) Send(ctx context.Context, params *Phone
 			"KEY_MESSAGE_ID": params.MessageID.String(),
 		},
 		Android: &messaging.AndroidConfig{
-			Priority: "normal",
+			Priority: "high",
 			TTL:      &ttl,
 		},
 		Token: *phone.FcmToken,

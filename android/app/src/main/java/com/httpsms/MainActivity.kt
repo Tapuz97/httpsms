@@ -198,7 +198,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         sendFCMToken(currentTimeStamp, context, Settings.getSIM1PhoneNumber(context), Constants.SIM1)
-        if (Settings.isDualSIM(context)) {
+        if (Settings.isDualSIM(context) && Settings.getSIM2PhoneNumber(context) != Settings.getSIM1PhoneNumber(context)) {
             sendFCMToken(currentTimeStamp, context, Settings.getSIM2PhoneNumber(context), Constants.SIM2)
         }
     }

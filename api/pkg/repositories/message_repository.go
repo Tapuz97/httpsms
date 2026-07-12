@@ -21,6 +21,9 @@ type MessageRepository interface {
 	// Index entities.Message between 2 phone numbers
 	Index(ctx context.Context, userID entities.UserID, owner string, contact string, params IndexParams) (*[]entities.Message, error)
 
+	// History fetches the latest messages for a user across all contacts.
+	History(ctx context.Context, userID entities.UserID, params IndexParams) ([]*entities.Message, error)
+
 	// LastMessage fetches the last message between an owner and a contact
 	LastMessage(ctx context.Context, userID entities.UserID, owner string, contact string) (*entities.Message, error)
 
@@ -32,6 +35,7 @@ type MessageRepository interface {
 
 	// GetOutstanding fetches an entities.Message which is outstanding
 	GetOutstanding(ctx context.Context, userID entities.UserID, messageID uuid.UUID, phoneNumbers []string) (*entities.Message, error)
+	OutstandingIDs(ctx context.Context, userID entities.UserID, phoneNumbers []string) ([]uuid.UUID, error)
 
 	// Delete an entities.Message by ID
 	Delete(ctx context.Context, userID entities.UserID, messageID uuid.UUID) error

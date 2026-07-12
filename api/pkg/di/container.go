@@ -130,6 +130,7 @@ func NewContainer(projectID string, version string) (container *Container) {
 	container.RegisterMessageSendScheduleRoutes()
 	container.RegisterMessageSendScheduleListeners()
 	container.RegisterUserListeners()
+	container.RegisterEmailRoutes()
 
 	container.RegisterPhoneRoutes()
 	container.RegisterPhoneListeners()
@@ -224,6 +225,12 @@ func (container *Container) PhoneAPIKeyMiddleware() fiber.Handler {
 func (container *Container) AuthenticatedMiddleware() fiber.Handler {
 	container.logger.Debug("creating middlewares.Authenticated")
 	return middlewares.Authenticated(container.Tracer())
+}
+
+// AllowedEmailMiddleware creates a new instance of middlewares.AllowedEmail
+func (container *Container) AllowedEmailMiddleware() fiber.Handler {
+	container.logger.Debug("creating middlewares.AllowedEmail")
+	return middlewares.AllowedEmail(container.Tracer(), splitCommaEnv("AUTH_ALLOWED_EMAILS", ""))
 }
 
 // Logger creates a new instance of telemetry.Logger
@@ -412,6 +419,10 @@ ALTER TABLE discords ADD CONSTRAINT IF NOT EXISTS uni_discords_server_id CHECK (
 
 	if err = db.AutoMigrate(&entities.PhoneAPIKey{}); err != nil {
 		container.logger.Fatal(stacktrace.Propagate(err, fmt.Sprintf("cannot migrate %T", &entities.PhoneAPIKey{})))
+	}
+
+	if err = db.AutoMigrate(&entities.EmailMessage{}); err != nil {
+		container.logger.Fatal(stacktrace.Propagate(err, fmt.Sprintf("cannot migrate %T", &entities.EmailMessage{})))
 	}
 
 	return container.db
@@ -1140,6 +1151,17 @@ func (container *Container) MessageHandler() (handler *handlers.MessageHandler) 
 	)
 }
 
+// EmailHandler creates a new instance of handlers.EmailHandler
+func (container *Container) EmailHandler() (handler *handlers.EmailHandler) {
+	container.logger.Debug(fmt.Sprintf("creating %T", handler))
+	return handlers.NewEmailHandler(
+		container.Logger(),
+		container.Tracer(),
+		container.Mailer(),
+		container.DB(),
+	)
+}
+
 // BulkMessageHandler creates a new instance of handlers.BulkMessageHandler
 func (container *Container) BulkMessageHandler() (handler *handlers.BulkMessageHandler) {
 	container.logger.Debug(fmt.Sprintf("creating %T", handler))
@@ -1353,7 +1375,7 @@ func (container *Container) RegisterIntegration3CXRoutes() {
 // RegisterPhoneAPIKeyRoutes registers routes for the /phone-api-key prefix
 func (container *Container) RegisterPhoneAPIKeyRoutes() {
 	container.logger.Debug(fmt.Sprintf("registering [%T] routes", &handlers.Integration3CXHandler{}))
-	container.PhoneAPIKeyHandler().RegisterRoutes(container.App(), container.AuthenticatedMiddleware())
+	container.PhoneAPIKeyHandler().RegisterRoutes(container.App(), container.AuthenticatedMiddleware(), container.AllowedEmailMiddleware())
 }
 
 // RegisterDiscordRoutes registers routes for the /discord prefix
@@ -1651,7 +1673,7 @@ func (container *Container) NotificationService() (service *services.PhoneNotifi
 func (container *Container) RegisterMessageRoutes() {
 	container.logger.Debug(fmt.Sprintf("registering %T routes", &handlers.MessageHandler{}))
 	container.MessageHandler().RegisterPhoneAPIKeyRoutes(container.App(), container.PhoneAPIKeyMiddleware(), container.AuthenticatedMiddleware())
-	container.MessageHandler().RegisterRoutes(container.App(), container.AuthenticatedMiddleware())
+	container.MessageHandler().RegisterRoutes(container.App(), container.AuthenticatedMiddleware(), container.AllowedEmailMiddleware())
 }
 
 // RegisterBulkMessageRoutes registers routes for the /bulk-messages prefix
@@ -1702,6 +1724,12 @@ func (container *Container) RegisterUserRoutes() {
 func (container *Container) RegisterMessageSendScheduleRoutes() {
 	container.logger.Debug(fmt.Sprintf("registering %T routes", &handlers.MessageSendScheduleHandler{}))
 	container.MessageSendScheduleHandler().RegisterRoutes(container.App(), container.AuthenticatedMiddleware())
+}
+
+// RegisterEmailRoutes registers routes for the /emails prefix
+func (container *Container) RegisterEmailRoutes() {
+	container.logger.Debug(fmt.Sprintf("registering %T routes", &handlers.EmailHandler{}))
+	container.EmailHandler().RegisterRoutes(container.App(), container.AuthenticatedMiddleware(), container.AllowedEmailMiddleware())
 }
 
 // RegisterEventRoutes registers routes for the /events prefix
@@ -1795,6 +1823,9 @@ func (container *Container) UserRistrettoCache() *ristretto.Cache[string, entiti
 
 // InitializeTraceProvider initializes the open telemetry trace provider
 func (container *Container) InitializeTraceProvider() func() {
+	if isLocal() || strings.TrimSpace(os.Getenv("AXIOM_TOKEN")) == "" {
+		return func() {}
+	}
 	return container.initializeAxiomTraceProvider(container.version, container.projectID)
 }
 
